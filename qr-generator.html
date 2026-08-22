@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PrintFlow — QR Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  body{font-family:sans-serif; background:#F1F1EE; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0;}
+  .card{background:#fff; border:1px solid #D8D9D4; padding:32px; width:360px; text-align:center;}
+  h2{font-size:16px; margin:0 0 20px;}
+  input{width:100%; padding:10px; border:1px solid #D8D9D4; margin-bottom:12px; box-sizing:border-box; font-size:14px;}
+  button{width:100%; padding:12px; background:#16181D; color:#fff; border:none; cursor:pointer; font-weight:600;}
+  #qrcode{margin:20px auto; display:flex; justify-content:center;}
+  a.download{display:inline-block; margin-top:14px; color:#1F5FA8; font-size:13px;}
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>Generate your shop's QR code</h2>
+  <input type="text" id="linkInput" placeholder="http://127.0.0.1:5500/index.html?shop=your-slug">
+  <button onclick="generate()">Generate QR</button>
+  <div id="qrcode"></div>
+  <a class="download" id="downloadLink" style="display:none;" download="printflow-qr.png">Download PNG</a>
+</div>
+<script>
+function generate(){
+  const val = document.getElementById("linkInput").value.trim();
+  if(!val) return alert("Paste your customer link first.");
+  document.getElementById("qrcode").innerHTML = "";
+  new QRCode(document.getElementById("qrcode"), { text: val, width: 220, height: 220 });
+  setTimeout(()=>{
+    const canvas = document.querySelector("#qrcode canvas");
+    if(canvas){
+      const link = document.getElementById("downloadLink");
+      link.href = canvas.toDataURL("image/png");
+      link.style.display = "inline-block";
+    }
+  }, 200);
+}
+</script>
+</body>
+</html>

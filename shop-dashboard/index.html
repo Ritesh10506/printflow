@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PrintFlow — Shop Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FBFBF9; --paper-dim:#F1F1EE; --ink:#16181D; --ink-soft:#5B6069; --ink-faint:#9498A0;
+    --rule:#D8D9D4; --stamp:#B23B3B; --stamp-dim:#F3E4E2; --toner:#1F5FA8; --toner-dim:#E6EEF7;
+    --success:#2F7D4F; --success-dim:#E5F1E9; --radius:2px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--paper-dim); color:var(--ink); font-family:'IBM Plex Sans',sans-serif; -webkit-font-smoothing:antialiased;}
+  .hidden{display:none !important;}
+  code{font-family:'IBM Plex Mono',monospace;}
+
+  #loginScreen{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;}
+  .login-card{background:var(--paper); border:1px solid var(--rule); padding:36px; width:100%; max-width:380px;}
+  .brand{font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:18px; margin-bottom:4px;}
+  .brand .dot{color:var(--stamp);}
+  .login-card h2{font-size:15px; font-weight:500; color:var(--ink-soft); margin:0 0 28px;}
+  .field{margin-bottom:16px;}
+  .field label{font-size:12px; font-weight:600; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.05em; display:block; margin-bottom:6px;}
+  .field input{width:100%; padding:11px 12px; border:1px solid var(--rule); border-radius:var(--radius); font-size:14px; font-family:'IBM Plex Sans',sans-serif;}
+  .field input:focus{outline:2px solid var(--toner); outline-offset:1px; border-color:var(--toner);}
+  .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 18px; border-radius:var(--radius);
+       border:1px solid transparent; font-weight:600; font-size:14px; cursor:pointer; width:100%; font-family:'IBM Plex Sans',sans-serif;}
+  .btn:disabled{opacity:.45; cursor:not-allowed;}
+  .btn-primary{background:var(--ink); color:#fff;}
+  .btn-primary:hover:not(:disabled){opacity:.88;}
+  .btn-stamp{background:var(--stamp); color:#fff;}
+  .btn-stamp:hover:not(:disabled){opacity:.88;}
+  .btn-ghost{background:transparent; color:var(--ink-soft); border-color:var(--rule);}
+  .btn-ghost:hover:not(:disabled){background:var(--paper-dim);}
+  .btn-sm{width:auto; padding:8px 14px; font-size:13px;}
+  .toggle-link{text-align:center; font-size:13px; color:var(--toner); cursor:pointer; margin-top:16px;}
+  .toggle-link:hover{text-decoration:underline;}
+  .err{background:var(--stamp-dim); border:1px solid var(--stamp); color:var(--stamp); padding:10px 12px; border-radius:var(--radius); font-size:13px; margin-bottom:16px;}
+  .ok{background:var(--success-dim); border:1px solid var(--success); color:var(--success); padding:10px 12px; border-radius:var(--radius); font-size:13px; margin-bottom:16px;}
+
+  #dashboard{max-width:1100px; margin:0 auto; padding:0 16px 60px;}
+  header.topbar{display:flex; align-items:center; justify-content:space-between; padding:20px 4px; border-bottom:1px solid var(--rule); margin-bottom:8px;}
+  header.topbar .shop-info{font-size:13px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace;}
+  header.topbar .shop-info strong{color:var(--ink); font-size:15px; display:block; font-family:'IBM Plex Sans',sans-serif; font-weight:600;}
+  .tabs{display:flex; gap:4px; border-bottom:1px solid var(--rule); margin-bottom:24px; overflow-x:auto;}
+  .tab{padding:12px 16px; font-size:13px; font-weight:600; color:var(--ink-faint); cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap;}
+  .tab.active{color:var(--ink); border-bottom-color:var(--stamp);}
+  .panel{background:var(--paper); border:1px solid var(--rule); padding:24px;}
+  .panel h3{font-family:'IBM Plex Mono',monospace; font-size:16px; margin:0 0 4px;}
+  .panel p.hint{color:var(--ink-soft); font-size:13px; margin:0 0 20px;}
+
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th{text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); padding:8px 10px; border-bottom:1px solid var(--rule);}
+  td{padding:10px; border-bottom:1px solid var(--rule); vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .badge{display:inline-block; padding:3px 8px; border-radius:20px; font-size:11px; font-weight:600; font-family:'IBM Plex Mono',monospace;}
+  .badge.online, .badge.done, .badge.paid{background:var(--success-dim); color:var(--success);}
+  .badge.offline, .badge.failed, .badge.cancelled{background:var(--stamp-dim); color:var(--stamp);}
+  .badge.queued, .badge.printing, .badge.awaiting_payment, .badge.busy{background:var(--toner-dim); color:var(--toner);}
+  .badge.cart{background:var(--paper-dim); color:var(--ink-faint);}
+  .empty-row{color:var(--ink-faint); text-align:center; padding:24px; font-size:13px;}
+
+  .pricing-form{display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:20px; align-items:end;}
+  @media(max-width:800px){ .pricing-form{grid-template-columns:1fr 1fr;} }
+  .pricing-form label{font-size:11px; font-weight:600; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; display:block; margin-bottom:5px;}
+  .pricing-form select, .pricing-form input{width:100%; padding:9px 10px; border:1px solid var(--rule); border-radius:var(--radius); font-size:13px; font-family:'IBM Plex Sans',sans-serif;}
+
+  .agent-key-box{background:var(--toner-dim); border:1px solid var(--toner); padding:14px 16px; border-radius:var(--radius); margin-top:16px;}
+  .agent-key-box .k{font-family:'IBM Plex Mono',monospace; font-size:13px; word-break:break-all; color:var(--toner); font-weight:600;}
+  .agent-key-box .warn{font-size:12px; color:var(--ink-soft); margin-top:8px;}
+
+  .link-row{display:flex; gap:8px; align-items:center; margin-top:10px;}
+  .link-row input{flex:1; padding:9px 10px; border:1px solid var(--rule); border-radius:var(--radius); font-family:'IBM Plex Mono',monospace; font-size:12px; background:var(--paper-dim);}
+
+  .row-actions button{background:none; border:none; color:var(--stamp); font-size:12px; cursor:pointer; text-decoration:underline; padding:0;}
+  .refresh-btn{float:right;}
+  .top-actions{display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="brand">PrintFlow<span class="dot">.</span></div>
+    <h2 id="authSubtitle">Shop owner login</h2>
+    <div id="authError" class="err hidden"></div>
+
+    <form id="loginForm">
+      <div class="field"><label>Email</label><input type="email" id="loginEmail" required></div>
+      <div class="field"><label>Password</label><input type="password" id="loginPassword" required></div>
+      <button class="btn btn-primary" type="submit">Log in</button>
+    </form>
+
+    <form id="signupForm" class="hidden">
+      <div class="field"><label>Shop name</label><input type="text" id="suName" required></div>
+      <div class="field"><label>Shop slug (used in your QR link)</label><input type="text" id="suSlug" placeholder="e.g. ramu-xerox" required></div>
+      <div class="field"><label>Email</label><input type="email" id="suEmail" required></div>
+      <div class="field"><label>Password</label><input type="password" id="suPassword" required></div>
+      <button class="btn btn-stamp" type="submit">Create shop account</button>
+    </form>
+
+    <div class="toggle-link" id="toggleAuthMode">New shop owner? Create an account</div>
+  </div>
+</div>
+
+<div id="dashboard" class="hidden">
+  <header class="topbar">
+    <div class="shop-info"><strong id="shopNameDisplay">—</strong> <span id="shopSlugDisplay"></span></div>
+    <button class="btn btn-ghost btn-sm" id="logoutBtn">Log out</button>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="pricing">Pricing</div>
+    <div class="tab" data-tab="printers">Printers</div>
+    <div class="tab" data-tab="agents">Print Agents</div>
+    <div class="tab" data-tab="orders">Orders</div>
+    <div class="tab" data-tab="link">Customer Link</div>
+  </div>
+
+  <div class="panel tab-panel" id="panel-pricing">
+    <h3>Pricing rules</h3>
+    <p class="hint">Set a price per page for each paper size + color combination. Customers see the total calculated from these automatically.</p>
+    <div id="pricingMsg"></div>
+    <div class="pricing-form">
+      <div><label>Paper size</label><select id="prPaper"><option value="A4">A4</option><option value="A3">A3</option><option value="Letter">Letter</option></select></div>
+      <div><label>Color</label><select id="prColor"><option value="bw">Black & white</option><option value="color">Color</option></select></div>
+      <div><label>Price / page (₹)</label><input type="text" id="prPrice" placeholder="2.00"></div>
+      <div><label>Duplex discount %</label><input type="text" id="prDuplexDisc" placeholder="0"></div>
+      <div><label>Binding price (₹)</label><input type="text" id="prBinding" placeholder="0"></div>
+    </div>
+    <button class="btn btn-primary" id="prSaveBtn" style="width:auto; padding:11px 22px;">Save rule</button>
+
+    <table style="margin-top:24px;">
+      <thead><tr><th>Paper</th><th>Color</th><th>Price/page</th><th>Duplex disc.</th><th>Binding</th><th></th></tr></thead>
+      <tbody id="pricingTableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="panel tab-panel hidden" id="panel-printers">
+    <div class="top-actions"><div><h3>Printers</h3><p class="hint" style="margin-bottom:0;">Reported automatically by your print agents. Reload after starting an agent.</p></div>
+      <button class="btn btn-ghost btn-sm" id="refreshPrinters">Refresh</button>
+    </div>
+    <table>
+      <thead><tr><th>Name</th><th>Status</th><th>Color</th><th>Duplex</th><th>Paper</th><th>Last seen</th><th></th></tr></thead>
+      <tbody id="printersTableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="panel tab-panel hidden" id="panel-agents">
+    <h3>Print agents</h3>
+    <p class="hint">A print agent is the small program installed on the PC connected to your printers. Create one here, then paste its API key into the agent app during setup.</p>
+    <div class="field" style="max-width:280px;"><label>Agent name</label><input type="text" id="agentName" placeholder="e.g. Front Desk PC" value="Front Desk PC"></div>
+    <button class="btn btn-primary" id="createAgentBtn" style="width:auto; padding:11px 22px;">Create agent</button>
+    <div id="agentKeyResult"></div>
+  </div>
+
+  <div class="panel tab-panel hidden" id="panel-orders">
+    <div class="top-actions"><h3>Orders</h3><button class="btn btn-ghost btn-sm" id="refreshOrders">Refresh</button></div>
+    <table>
+      <thead><tr><th>File</th><th>Pages</th><th>Options</th><th>Amount</th><th>Status</th><th>Created</th></tr></thead>
+      <tbody id="ordersTableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="panel tab-panel hidden" id="panel-link">
+    <h3>Your customer link</h3>
+    <p class="hint">This is what your QR code should point to. Anyone who scans it lands on your upload page.</p>
+    <div class="link-row">
+      <input type="text" id="customerLinkInput" readonly>
+      <button class="btn btn-ghost btn-sm" id="copyLinkBtn">Copy</button>
+    </div>
+    <p class="hint" style="margin-top:16px;">Note: the path above points at the customer web app's local dev server. In production this becomes your real domain, e.g. <code>printflow.app/s/your-slug</code>.</p>
+  </div>
+</div>
+
+<script>
+const API_BASE = "http://127.0.0.1:8000";
+const CUSTOMER_APP_BASE = "http://127.0.0.1:5500/index.html";
+
+const $ = (id) => document.getElementById(id);
+let token = localStorage.getItem("printflow_token") || null;
+let currentShop = JSON.parse(localStorage.getItem("printflow_shop") || "null");
+
+async function api(path, opts={}){
+  const headers = opts.headers || {};
+  if(token) headers["authorization"] = "Bearer " + token;
+  const res = await fetch(API_BASE + path, {...opts, headers});
+  let body = null;
+  try { body = await res.json(); } catch(e){}
+  if(!res.ok){
+    const detail = body && body.detail ? (typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail)) : `Request failed (${res.status})`;
+    throw new Error(detail);
+  }
+  return body;
+}
+
+let authMode = "login";
+$("toggleAuthMode").addEventListener("click", ()=>{
+  authMode = authMode === "login" ? "signup" : "login";
+  $("loginForm").classList.toggle("hidden", authMode !== "login");
+  $("signupForm").classList.toggle("hidden", authMode !== "signup");
+  $("authSubtitle").textContent = authMode === "login" ? "Shop owner login" : "Create your shop account";
+  $("toggleAuthMode").textContent = authMode === "login" ? "New shop owner? Create an account" : "Already have an account? Log in";
+  $("authError").classList.add("hidden");
+});
+
+function showAuthError(msg){
+  $("authError").textContent = msg;
+  $("authError").classList.remove("hidden");
+}
+
+$("loginForm").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  $("authError").classList.add("hidden");
+  try{
+    const result = await api("/api/shops/login", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ owner_email: $("loginEmail").value.trim(), owner_password: $("loginPassword").value })
+    });
+    token = result.access_token;
+    currentShop = result.shop;
+    localStorage.setItem("printflow_token", token);
+    localStorage.setItem("printflow_shop", JSON.stringify(currentShop));
+    enterDashboard();
+  }catch(err){ showAuthError(err.message); }
+});
+
+$("signupForm").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  $("authError").classList.add("hidden");
+  try{
+    await api("/api/shops/signup", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        name: $("suName").value.trim(),
+        slug: $("suSlug").value.trim(),
+        owner_email: $("suEmail").value.trim(),
+        owner_password: $("suPassword").value,
+      })
+    });
+    const result = await api("/api/shops/login", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ owner_email: $("suEmail").value.trim(), owner_password: $("suPassword").value })
+    });
+    token = result.access_token;
+    currentShop = result.shop;
+    localStorage.setItem("printflow_token", token);
+    localStorage.setItem("printflow_shop", JSON.stringify(currentShop));
+    enterDashboard();
+  }catch(err){ showAuthError(err.message); }
+});
+
+$("logoutBtn").addEventListener("click", ()=>{
+  token = null; currentShop = null;
+  localStorage.removeItem("printflow_token");
+  localStorage.removeItem("printflow_shop");
+  $("dashboard").classList.add("hidden");
+  $("loginScreen").classList.remove("hidden");
+});
+
+document.querySelectorAll(".tab").forEach(tab=>{
+  tab.addEventListener("click", ()=>{
+    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p=>p.classList.add("hidden"));
+    tab.classList.add("active");
+    $("panel-" + tab.dataset.tab).classList.remove("hidden");
+    if(tab.dataset.tab === "printers") loadPrinters();
+    if(tab.dataset.tab === "orders") loadOrders();
+    if(tab.dataset.tab === "pricing") loadPricing();
+  });
+});
+
+function enterDashboard(){
+  $("loginScreen").classList.add("hidden");
+  $("dashboard").classList.remove("hidden");
+  $("shopNameDisplay").textContent = currentShop.name;
+  $("shopSlugDisplay").textContent = "/" + currentShop.slug;
+  $("customerLinkInput").value = `${CUSTOMER_APP_BASE}?shop=${currentShop.slug}`;
+  loadPricing();
+}
+
+async function loadPricing(){
+  const body = $("pricingTableBody");
+  body.innerHTML = `<tr><td colspan="6" class="empty-row">Loading…</td></tr>`;
+  try{
+    const rules = await api("/api/pricing");
+    if(!rules.length){ body.innerHTML = `<tr><td colspan="6" class="empty-row">No pricing set yet — add your first rule above.</td></tr>`; return; }
+    body.innerHTML = rules.map(r => `
+      <tr>
+        <td>${r.paper_size}</td>
+        <td>${r.color_mode === "color" ? "Color" : "B&W"}</td>
+        <td>₹${r.price_per_page.toFixed(2)}</td>
+        <td>${r.duplex_discount_pct}%</td>
+        <td>₹${r.binding_price.toFixed(2)}</td>
+        <td class="row-actions"><button onclick="deleteRule('${r.id}')">Delete</button></td>
+      </tr>`).join("");
+  }catch(err){ body.innerHTML = `<tr><td colspan="6" class="empty-row">${err.message}</td></tr>`; }
+}
+
+$("prSaveBtn").addEventListener("click", async ()=>{
+  const msg = $("pricingMsg");
+  msg.innerHTML = "";
+  try{
+    const price = parseFloat($("prPrice").value);
+    if(isNaN(price) || price < 0) throw new Error("Enter a valid price per page.");
+    await api("/api/pricing", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        paper_size: $("prPaper").value,
+        color_mode: $("prColor").value,
+        price_per_page: price,
+        duplex_discount_pct: parseFloat($("prDuplexDisc").value || "0"),
+        binding_price: parseFloat($("prBinding").value || "0"),
+      })
+    });
+    msg.innerHTML = `<div class="ok">Saved.</div>`;
+    $("prPrice").value = ""; $("prDuplexDisc").value = ""; $("prBinding").value = "";
+    loadPricing();
+  }catch(err){ msg.innerHTML = `<div class="err">${err.message}</div>`; }
+});
+
+window.deleteRule = async (id)=>{
+  if(!confirm("Remove this pricing rule?")) return;
+  try{ await api(`/api/pricing/${id}`, { method:"DELETE" }); loadPricing(); }
+  catch(err){ alert(err.message); }
+};
+
+async function loadPrinters(){
+  const body = $("printersTableBody");
+  body.innerHTML = `<tr><td colspan="7" class="empty-row">Loading…</td></tr>`;
+  try{
+    const printers = await api("/api/printers");
+    if(!printers.length){ body.innerHTML = `<tr><td colspan="7" class="empty-row">No printers reported yet. Start a print agent to see it here.</td></tr>`; return; }
+    body.innerHTML = printers.map(p => `
+      <tr>
+        <td>${p.name}</td>
+        <td><span class="badge ${p.status}">${p.status}</span></td>
+        <td>${p.supports_color ? "Yes" : "No"}</td>
+        <td>${p.supports_duplex ? "Yes" : "No"}</td>
+        <td>${p.max_paper_size}</td>
+        <td>${p.last_seen ? new Date(p.last_seen).toLocaleTimeString() : "—"}</td>
+        <td class="row-actions"><button onclick="deletePrinter('${p.id}')">Remove</button></td>
+      </tr>`).join("");
+  }catch(err){ body.innerHTML = `<tr><td colspan="7" class="empty-row">${err.message}</td></tr>`; }
+}
+$("refreshPrinters").addEventListener("click", loadPrinters);
+window.deletePrinter = async (id)=>{
+  if(!confirm("Remove this printer?")) return;
+  try{ await api(`/api/printers/${id}`, { method:"DELETE" }); loadPrinters(); }
+  catch(err){ alert(err.message); }
+};
+
+$("createAgentBtn").addEventListener("click", async ()=>{
+  const box = $("agentKeyResult");
+  box.innerHTML = "";
+  try{
+    const name = $("agentName").value.trim() || "Print Agent";
+    const agent = await api(`/api/agents?name=${encodeURIComponent(name)}`, { method:"POST" });
+    box.innerHTML = `
+      <div class="agent-key-box">
+        <div>API key for <strong>${agent.name}</strong>:</div>
+        <div class="k">${agent.api_key}</div>
+        <div class="warn">Save this now — paste it into the print agent app on the shop PC. It won't be shown again from here.</div>
+      </div>`;
+  }catch(err){ box.innerHTML = `<div class="err">${err.message}</div>`; }
+});
+
+async function loadOrders(){
+  const body = $("ordersTableBody");
+  body.innerHTML = `<tr><td colspan="6" class="empty-row">Loading…</td></tr>`;
+  try{
+    const orders = await api("/api/orders");
+    if(!orders.length){ body.innerHTML = `<tr><td colspan="6" class="empty-row">No orders yet.</td></tr>`; return; }
+    body.innerHTML = orders.map(o => `
+      <tr>
+        <td>${o.original_filename || "—"}</td>
+        <td>${o.page_count}</td>
+        <td>${o.color_mode.toUpperCase()} · ${o.paper_size}${o.duplex ? " · duplex" : ""} · x${o.copies}</td>
+        <td>₹${o.amount.toFixed(2)}</td>
+        <td><span class="badge ${o.status}">${o.status}</span></td>
+        <td>${new Date(o.created_at).toLocaleString()}</td>
+      </tr>`).join("");
+  }catch(err){ body.innerHTML = `<tr><td colspan="6" class="empty-row">${err.message}</td></tr>`; }
+}
+$("refreshOrders").addEventListener("click", loadOrders);
+
+$("copyLinkBtn").addEventListener("click", ()=>{
+  $("customerLinkInput").select();
+  navigator.clipboard.writeText($("customerLinkInput").value);
+  $("copyLinkBtn").textContent = "Copied!";
+  setTimeout(()=> $("copyLinkBtn").textContent = "Copy", 1500);
+});
+
+if(token && currentShop){ enterDashboard(); }
+</script>
+</body>
+</html>

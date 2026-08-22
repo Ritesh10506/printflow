@@ -1,0 +1,7 @@
+{
+  "api_base": "http://127.0.0.1:8000",
+  "api_key": "PASTE_YOUR_AGENT_API_KEY_HERE",
+  "sumatra_path": "C:\\PrintFlowAgent\\SumatraPDF.exe",
+  "heartbeat_interval_seconds": 20,
+  "poll_interval_seconds": 5
+}

@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Secrets — never commit these
+.env
+print-agent/config.json
+
+# Database (contains real customer/order data)
+printapp.db
+*.db
+
+# Uploaded customer files
+uploads/*
+!uploads/.gitkeep
+
+# IDE
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+print-agent/sumatra/

@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PrintFlow — Upload & Print</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FBFBF9;
+    --paper-dim:#F1F1EE;
+    --ink:#16181D;
+    --ink-soft:#5B6069;
+    --ink-faint:#9498A0;
+    --rule:#D8D9D4;
+    --stamp:#B23B3B;
+    --stamp-dim:#F3E4E2;
+    --toner:#1F5FA8;
+    --toner-dim:#E6EEF7;
+    --success:#2F7D4F;
+    --success-dim:#E5F1E9;
+    --radius:2px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper-dim);
+    color:var(--ink);
+    font-family:'IBM Plex Sans',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  .app{
+    max-width:1040px;
+    margin:0 auto;
+    padding:24px 16px 80px;
+  }
+  header.topbar{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    padding:4px 4px 20px;
+    border-bottom:1px solid var(--rule);
+    margin-bottom:24px;
+  }
+  .brand{
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:600;
+    font-size:15px;
+    letter-spacing:0.02em;
+  }
+  .brand .dot{color:var(--stamp);}
+  .shop-name{
+    font-size:13px;
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .layout{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:20px;
+  }
+  @media(min-width:820px){
+    .layout{grid-template-columns:1.5fr 1fr; align-items:start;}
+  }
+  .panel{
+    background:var(--paper);
+    border:1px solid var(--rule);
+    border-radius:var(--radius);
+    padding:24px;
+  }
+  .step-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    color:var(--ink-faint);
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    margin-bottom:6px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .step-label .n{
+    width:18px;height:18px;
+    border-radius:50%;
+    border:1px solid var(--ink-faint);
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    font-size:10px;
+    color:var(--ink-soft);
+  }
+  .step-label.done .n{
+    background:var(--success);
+    border-color:var(--success);
+    color:#fff;
+  }
+  h1.page-title{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:22px;
+    font-weight:600;
+    margin:0 0 4px;
+  }
+  p.sub{
+    color:var(--ink-soft);
+    font-size:14px;
+    margin:0 0 24px;
+    line-height:1.5;
+  }
+  .dropzone{
+    border:1.5px dashed var(--rule);
+    border-radius:var(--radius);
+    padding:40px 20px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--toner);
+    background:var(--toner-dim);
+  }
+  .dropzone .icon{font-size:28px; margin-bottom:10px;}
+  .dropzone .label{font-weight:600; font-size:15px;}
+  .dropzone .hint{color:var(--ink-soft); font-size:13px; margin-top:4px;}
+  input[type=file]{display:none;}
+  .file-chip{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--paper-dim);
+    border:1px solid var(--rule);
+    border-radius:var(--radius);
+    padding:14px 16px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+  }
+  .file-chip .meta{color:var(--ink-soft);}
+  .file-chip button{
+    background:none;border:none;color:var(--stamp);
+    font-family:'IBM Plex Sans',sans-serif;font-size:13px;cursor:pointer;
+    text-decoration:underline;
+  }
+  fieldset{border:none;padding:0;margin:0 0 20px;}
+  .field-row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+    margin-bottom:14px;
+  }
+  label.field-label{
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink-soft);
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    display:block;
+    margin-bottom:6px;
+  }
+  select, input[type=text]{
+    width:100%;
+    padding:11px 12px;
+    border:1px solid var(--rule);
+    border-radius:var(--radius);
+    background:#fff;
+    font-family:'IBM Plex Sans',sans-serif;
+    font-size:14px;
+    color:var(--ink);
+  }
+  select:focus, input[type=text]:focus, .stepper input:focus{
+    outline:2px solid var(--toner);
+    outline-offset:1px;
+    border-color:var(--toner);
+  }
+  .toggle-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:12px 0;
+    border-bottom:1px solid var(--rule);
+  }
+  .toggle-row:last-child{border-bottom:none;}
+  .toggle-row .t-label{font-size:14px; font-weight:500;}
+  .toggle-row .t-hint{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .switch{
+    position:relative;
+    width:42px;height:24px;
+    flex:0 0 auto;
+  }
+  .switch input{opacity:0;width:100%;height:100%;position:absolute;margin:0;cursor:pointer;}
+  .switch .track{
+    position:absolute;inset:0;
+    background:var(--rule);
+    border-radius:20px;
+    transition:background .15s ease;
+  }
+  .switch .knob{
+    position:absolute;top:3px;left:3px;
+    width:18px;height:18px;
+    background:#fff;
+    border-radius:50%;
+    box-shadow:0 1px 2px rgba(0,0,0,.25);
+    transition:transform .15s ease;
+  }
+  .switch input:checked + .track{background:var(--toner);}
+  .switch input:checked ~ .knob{transform:translateX(18px);}
+  .stepper{
+    display:flex;
+    align-items:center;
+    gap:0;
+    border:1px solid var(--rule);
+    border-radius:var(--radius);
+    width:fit-content;
+  }
+  .stepper button{
+    width:36px;height:36px;
+    border:none;background:var(--paper-dim);
+    font-size:16px;font-family:'IBM Plex Mono',monospace;
+    cursor:pointer;color:var(--ink);
+  }
+  .stepper button:hover{background:var(--rule);}
+  .stepper input{
+    width:44px;height:36px;
+    border:none;border-left:1px solid var(--rule);border-right:1px solid var(--rule);
+    text-align:center;font-family:'IBM Plex Mono',monospace;font-size:14px;
+  }
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    padding:14px 20px;
+    border-radius:var(--radius);
+    border:1px solid transparent;
+    font-family:'IBM Plex Sans',sans-serif;
+    font-weight:600;
+    font-size:14px;
+    cursor:pointer;
+    width:100%;
+    transition:opacity .15s ease, transform .05s ease;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn:disabled{opacity:.45; cursor:not-allowed;}
+  .btn-primary{background:var(--ink); color:#fff;}
+  .btn-primary:hover:not(:disabled){opacity:.88;}
+  .btn-stamp{background:var(--stamp); color:#fff;}
+  .btn-stamp:hover:not(:disabled){opacity:.88;}
+  .btn-ghost{background:transparent; color:var(--ink-soft); border-color:var(--rule);}
+
+  /* --- Receipt panel (signature element) --- */
+  .receipt{
+    position:relative;
+    background:#fff;
+    border:1px solid var(--rule);
+    padding:26px 22px 22px;
+    font-family:'IBM Plex Mono',monospace;
+    box-shadow:0 1px 0 var(--rule);
+  }
+  .receipt::before, .receipt::after{
+    content:"";
+    position:absolute;
+    left:0;right:0;
+    height:10px;
+    background:
+      radial-gradient(circle at 6px 5px, var(--paper-dim) 5px, transparent 5.5px) repeat-x;
+    background-size:16px 10px;
+  }
+  .receipt::before{top:-5px;}
+  .receipt::after{bottom:-5px; transform:rotate(180deg);}
+  .receipt-head{
+    text-align:center;
+    border-bottom:1px dashed var(--rule);
+    padding-bottom:14px;
+    margin-bottom:14px;
+  }
+  .receipt-head .shop{font-weight:700; font-size:15px; letter-spacing:.02em;}
+  .receipt-head .addr{font-size:11px; color:var(--ink-soft); margin-top:4px;}
+  .receipt-line{
+    display:flex;
+    justify-content:space-between;
+    font-size:13px;
+    padding:5px 0;
+    color:var(--ink);
+    opacity:0;
+    transform:translateY(4px);
+    animation:lineIn .25s ease forwards;
+  }
+  @keyframes lineIn{ to{opacity:1; transform:translateY(0);} }
+  .receipt-line .k{color:var(--ink-soft);}
+  .receipt-line .v{font-weight:600;}
+  .receipt-empty{
+    font-size:12px;
+    color:var(--ink-faint);
+    text-align:center;
+    padding:20px 0;
+  }
+  .receipt-total{
+    border-top:1px dashed var(--rule);
+    margin-top:10px;
+    padding-top:12px;
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+  }
+  .receipt-total .k{font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.05em;}
+  .receipt-total .v{font-size:24px; font-weight:700;}
+  .stamp-mark{
+    margin-top:16px;
+    text-align:center;
+    padding:12px;
+    border:2px solid var(--stamp);
+    color:var(--stamp);
+    font-weight:700;
+    letter-spacing:.15em;
+    font-size:13px;
+    border-radius:var(--radius);
+    transform:rotate(-3deg);
+    animation:stampIn .35s cubic-bezier(.2,1.4,.4,1) forwards;
+  }
+  .stamp-mark.success{border-color:var(--success); color:var(--success);}
+  @keyframes stampIn{
+    0%{opacity:0; transform:scale(1.6) rotate(-3deg);}
+    100%{opacity:1; transform:scale(1) rotate(-3deg);}
+  }
+  .status-track{
+    margin-top:16px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .status-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:12px;
+    color:var(--ink-faint);
+  }
+  .status-row .dot{
+    width:8px;height:8px;border-radius:50%;
+    background:var(--rule);
+    flex:0 0 auto;
+  }
+  .status-row.active{color:var(--toner);}
+  .status-row.active .dot{background:var(--toner); box-shadow:0 0 0 3px var(--toner-dim);}
+  .status-row.complete{color:var(--success);}
+  .status-row.complete .dot{background:var(--success);}
+
+  .error-banner{
+    background:var(--stamp-dim);
+    border:1px solid var(--stamp);
+    color:var(--stamp);
+    padding:12px 14px;
+    border-radius:var(--radius);
+    font-size:13px;
+    margin-bottom:16px;
+  }
+  .setup-note{
+    background:var(--toner-dim);
+    border:1px solid var(--toner);
+    color:var(--toner);
+    padding:10px 14px;
+    border-radius:var(--radius);
+    font-size:12px;
+    margin-bottom:20px;
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .setup-note code{background:rgba(255,255,255,.6); padding:1px 4px; border-radius:2px;}
+  .hidden{display:none !important;}
+  .page-range-hint{font-size:11px; color:var(--ink-faint); margin-top:6px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">PrintFlow<span class="dot">.</span></div>
+    <div class="shop-name" id="shopNameLabel">connecting…</div>
+  </header>
+
+  <div id="apiNote" class="setup-note hidden">
+    Talking to <code id="apiBaseLabel"></code> — edit <code>API_BASE</code> at the top of the script if your server runs elsewhere.
+  </div>
+  <div id="errorBanner" class="error-banner hidden"></div>
+
+  <div class="layout">
+    <!-- LEFT: the flow -->
+    <div>
+
+      <!-- STEP 1: shop not resolved yet, or upload -->
+      <section class="panel" id="uploadPanel">
+        <div class="step-label" id="stepLabel1"><span class="n">1</span> Upload</div>
+        <h1 class="page-title">Send your file to print</h1>
+        <p class="sub">Choose a PDF from your phone or computer. You'll set copies, color, and paper on the next step.</p>
+
+        <div id="dropzone" class="dropzone">
+          <div class="icon">📄</div>
+          <div class="label">Tap to choose a file</div>
+          <div class="hint">PDF works best · Word docs supported too</div>
+        </div>
+        <input type="file" id="fileInput" accept=".pdf,.doc,.docx">
+        <div id="fileChip" class="file-chip hidden">
+          <span id="fileMeta" class="meta"></span>
+          <button id="fileClear">Remove</button>
+        </div>
+
+        <div style="margin-top:18px;">
+          <button class="btn btn-primary" id="uploadBtn" disabled>Upload & continue</button>
+        </div>
+      </section>
+
+      <!-- STEP 2: configure -->
+      <section class="panel hidden" id="configPanel" style="margin-top:20px;">
+        <div class="step-label" id="stepLabel2"><span class="n">2</span> Configure</div>
+        <h1 class="page-title">How should we print it?</h1>
+        <p class="sub" id="pageCountLine">—</p>
+
+        <fieldset>
+          <div class="field-row">
+            <div>
+              <label class="field-label">Color</label>
+              <select id="colorMode">
+                <option value="bw">Black & white</option>
+                <option value="color">Color</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label">Paper size</label>
+              <select id="paperSize">
+                <option value="A4">A4</option>
+                <option value="A3">A3</option>
+                <option value="Letter">Letter</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="field-label">Pages to print</label>
+            <input type="text" id="pageRange" placeholder="Leave blank for all pages">
+            <div class="page-range-hint">e.g. 1-5,8,10-12 — leave blank to print every page</div>
+          </div>
+
+          <div class="toggle-row">
+            <div>
+              <div class="t-label">Double-sided (duplex)</div>
+              <div class="t-hint">Prints on both sides of the paper</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="duplex">
+              <span class="track"></span><span class="knob"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="t-label">Spiral binding</div>
+              <div class="t-hint">Adds a flat fee for binding</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="binding">
+              <span class="track"></span><span class="knob"></span>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="t-label">Copies</div>
+            </div>
+            <div class="stepper">
+              <button type="button" id="copiesMinus">−</button>
+              <input type="text" id="copies" value="1" readonly>
+              <button type="button" id="copiesPlus">+</button>
+            </div>
+          </div>
+        </fieldset>
+
+        <button class="btn btn-primary" id="quoteBtn">Get price</button>
+      </section>
+
+      <!-- STEP 3: pay -->
+      <section class="panel hidden" id="payPanel" style="margin-top:20px;">
+        <div class="step-label" id="stepLabel3"><span class="n">3</span> Pay</div>
+        <h1 class="page-title">Confirm & pay</h1>
+        <p class="sub">Once payment is confirmed, your job is sent straight to a free printer at the shop.</p>
+        <button class="btn btn-stamp" id="payBtn">Pay & send to print</button>
+      </section>
+
+      <!-- STEP 4: track -->
+      <section class="panel hidden" id="trackPanel" style="margin-top:20px;">
+        <div class="step-label done"><span class="n">4</span> Track</div>
+        <h1 class="page-title" id="trackTitle">Job queued</h1>
+        <p class="sub" id="trackSub">We'll update this automatically — no need to refresh.</p>
+      </section>
+
+    </div>
+
+    <!-- RIGHT: live receipt -->
+    <div>
+      <div class="receipt" id="receipt">
+        <div class="receipt-head">
+          <div class="shop" id="receiptShop">PRINT SHOP</div>
+          <div class="addr">Order receipt</div>
+        </div>
+        <div id="receiptLines">
+          <div class="receipt-empty">Your order will appear here as you go</div>
+        </div>
+        <div class="receipt-total hidden" id="receiptTotal">
+          <span class="k">Total</span>
+          <span class="v" id="receiptTotalValue">₹0.00</span>
+        </div>
+        <div id="stampArea"></div>
+        <div id="statusTrack" class="status-track hidden">
+          <div class="status-row" data-s="paid"><span class="dot"></span> Payment confirmed</div>
+          <div class="status-row" data-s="queued"><span class="dot"></span> Queued for a printer</div>
+          <div class="status-row" data-s="printing"><span class="dot"></span> Printing</div>
+          <div class="status-row" data-s="done"><span class="dot"></span> Ready for pickup</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- Configuration ----
+// Point this at your running backend. Local dev default matches `uvicorn app.main:app`.
+const API_BASE = "http://127.0.0.1:8000";
+
+// Shop slug: read from ?shop=slug in the URL (this is what a shop's QR code encodes).
+const params = new URLSearchParams(window.location.search);
+let SHOP_SLUG = params.get("shop");
+
+// ---- State ----
+let shop = null;
+let order = null;
+let quote = null;
+let pollTimer = null;
+
+// ---- DOM refs ----
+const $ = (id) => document.getElementById(id);
+const shopNameLabel = $("shopNameLabel");
+const errorBanner = $("errorBanner");
+const apiNote = $("apiNote");
+const apiBaseLabel = $("apiBaseLabel");
+
+apiBaseLabel.textContent = API_BASE;
+apiNote.classList.remove("hidden");
+
+function showError(msg){
+  errorBanner.textContent = msg;
+  errorBanner.classList.remove("hidden");
+}
+function clearError(){ errorBanner.classList.add("hidden"); }
+
+async function api(path, opts={}){
+  const res = await fetch(API_BASE + path, opts);
+  let body = null;
+  try { body = await res.json(); } catch(e) {}
+  if(!res.ok){
+    const detail = body && body.detail ? (typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail)) : `Request failed (${res.status})`;
+    throw new Error(detail);
+  }
+  return body;
+}
+
+// ---- Init: resolve shop ----
+async function init(){
+  if(!SHOP_SLUG){
+    // No shop in the URL (e.g. opened directly instead of via a QR scan) — ask for one so this is still testable.
+    const entered = window.prompt("No shop link detected. Enter a shop slug to test with (e.g. ramu-xerox):");
+    if(!entered){
+      shopNameLabel.textContent = "no shop";
+      showError("This link is missing a shop. Scan the QR code at the print counter, or add ?shop=your-slug to the URL.");
+      return;
+    }
+    SHOP_SLUG = entered.trim();
+  }
+  try{
+    shop = await api(`/api/public/shops/${encodeURIComponent(SHOP_SLUG)}`);
+    shopNameLabel.textContent = shop.name;
+    $("receiptShop").textContent = shop.name.toUpperCase();
+  }catch(e){
+    shopNameLabel.textContent = "unavailable";
+    showError("Couldn't load this print shop: " + e.message);
+  }
+}
+
+// ---- Step 1: Upload ----
+const dropzone = $("dropzone");
+const fileInput = $("fileInput");
+const fileChip = $("fileChip");
+const fileMeta = $("fileMeta");
+const uploadBtn = $("uploadBtn");
+let chosenFile = null;
+
+dropzone.addEventListener("click", () => fileInput.click());
+dropzone.addEventListener("dragover", (e)=>{ e.preventDefault(); dropzone.classList.add("drag"); });
+dropzone.addEventListener("dragleave", ()=> dropzone.classList.remove("drag"));
+dropzone.addEventListener("drop", (e)=>{
+  e.preventDefault();
+  dropzone.classList.remove("drag");
+  if(e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener("change", ()=>{
+  if(fileInput.files.length) setFile(fileInput.files[0]);
+});
+$("fileClear").addEventListener("click", ()=>{
+  chosenFile = null;
+  fileChip.classList.add("hidden");
+  dropzone.classList.remove("hidden");
+  uploadBtn.disabled = true;
+});
+
+function setFile(file){
+  chosenFile = file;
+  fileMeta.textContent = `${file.name} · ${(file.size/1024).toFixed(0)} KB`;
+  fileChip.classList.remove("hidden");
+  dropzone.classList.add("hidden");
+  uploadBtn.disabled = false;
+}
+
+uploadBtn.addEventListener("click", async ()=>{
+  if(!chosenFile || !shop) return;
+  clearError();
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = "Uploading…";
+  try{
+    const form = new FormData();
+    form.append("file", chosenFile);
+    order = await api(`/api/public/shops/${encodeURIComponent(SHOP_SLUG)}/orders`, {
+      method:"POST",
+      body: form,
+    });
+    $("pageCountLine").textContent = `${order.page_count} page${order.page_count===1?"":"s"} detected · ${order.original_filename}`;
+    addReceiptLine("File", order.original_filename);
+    addReceiptLine("Pages", String(order.page_count));
+    $("stepLabel1").classList.add("done");
+    $("configPanel").classList.remove("hidden");
+    $("configPanel").scrollIntoView({behavior:"smooth", block:"start"});
+  }catch(e){
+    showError("Upload failed: " + e.message);
+  }finally{
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = "Upload & continue";
+  }
+});
+
+// ---- Step 2: Configure + quote ----
+const copiesInput = $("copies");
+$("copiesMinus").addEventListener("click", ()=>{
+  copiesInput.value = Math.max(1, parseInt(copiesInput.value||"1") - 1);
+});
+$("copiesPlus").addEventListener("click", ()=>{
+  copiesInput.value = Math.min(99, parseInt(copiesInput.value||"1") + 1);
+});
+
+$("quoteBtn").addEventListener("click", async ()=>{
+  clearError();
+  const btn = $("quoteBtn");
+  btn.disabled = true;
+  btn.textContent = "Calculating…";
+  try{
+    const options = {
+      color_mode: $("colorMode").value,
+      paper_size: $("paperSize").value,
+      duplex: $("duplex").checked,
+      binding: $("binding").checked,
+      copies: parseInt(copiesInput.value||"1"),
+      page_range: $("pageRange").value.trim() || null,
+    };
+    await api(`/api/public/orders/${order.id}/options`, {
+      method:"PATCH",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(options),
+    });
+    quote = await api(`/api/public/orders/${order.id}/quote`);
+
+    renderQuoteReceipt(options, quote);
+    $("stepLabel2").classList.add("done");
+    $("payPanel").classList.remove("hidden");
+    $("payPanel").scrollIntoView({behavior:"smooth", block:"start"});
+  }catch(e){
+    showError("Couldn't calculate a price: " + e.message);
+  }finally{
+    btn.disabled = false;
+    btn.textContent = "Get price";
+  }
+});
+
+function renderQuoteReceipt(options, q){
+  const lines = $("receiptLines");
+  lines.innerHTML = "";
+  addReceiptLine("File", order.original_filename);
+  addReceiptLine("Pages printed", `${q.page_count} × ${options.copies} ${options.copies>1?"copies":"copy"}`);
+  addReceiptLine("Color", options.color_mode === "color" ? "Color" : "Black & white");
+  addReceiptLine("Paper", options.paper_size + (options.duplex ? " · duplex" : ""));
+  if(options.binding) addReceiptLine("Binding", "Spiral");
+  addReceiptLine("Price / page", `₹${q.price_per_page.toFixed(2)}`);
+  $("receiptTotal").classList.remove("hidden");
+  $("receiptTotalValue").textContent = `₹${q.amount.toFixed(2)}`;
+}
+
+function addReceiptLine(k, v){
+  const lines = $("receiptLines");
+  const empty = lines.querySelector(".receipt-empty");
+  if(empty) empty.remove();
+  const row = document.createElement("div");
+  row.className = "receipt-line";
+  row.innerHTML = `<span class="k">${k}</span><span class="v">${v}</span>`;
+  lines.appendChild(row);
+}
+
+// ---- Step 3: Pay (test-mode mock gateway) ----
+$("payBtn").addEventListener("click", async ()=>{
+  clearError();
+  const btn = $("payBtn");
+  btn.disabled = true;
+  btn.textContent = "Processing…";
+  try{
+    await api(`/api/public/payments/${order.id}/init`, { method:"POST" });
+    // TEST MODE: a real integration opens the gateway's checkout here and
+    // waits for its callback instead of immediately calling verify.
+    const fakeRef = "pay_test_" + Date.now();
+    const result = await api(`/api/public/payments/${order.id}/verify`, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ order_id: order.id, gateway_payment_ref: fakeRef }),
+    });
+    order = result;
+    showStamp(order.printer_id ? "PAID" : "PAID — WAITING FOR A FREE PRINTER", "success");
+    $("payPanel").classList.add("hidden");
+    $("trackPanel").classList.remove("hidden");
+    $("statusTrack").classList.remove("hidden");
+    $("trackPanel").scrollIntoView({behavior:"smooth", block:"start"});
+    startPolling();
+  }catch(e){
+    showError("Payment failed: " + e.message);
+  }finally{
+    btn.disabled = false;
+    btn.textContent = "Pay & send to print";
+  }
+});
+
+function showStamp(text, kind){
+  $("stampArea").innerHTML = `<div class="stamp-mark ${kind==='success'?'success':''}">${text}</div>`;
+}
+
+// ---- Step 4: Track ----
+function startPolling(){
+  updateStatusTrack(order.status);
+  pollTimer = setInterval(async ()=>{
+    try{
+      const fresh = await api(`/api/public/orders/${order.id}`);
+      order = fresh;
+      updateStatusTrack(order.status);
+      if(order.status === "done" || order.status === "failed"){
+        clearInterval(pollTimer);
+      }
+    }catch(e){ /* transient — keep polling */ }
+  }, 2500);
+}
+
+const STATUS_STEPS = ["paid","queued","printing","done"];
+function updateStatusTrack(status){
+  const idx = STATUS_STEPS.indexOf(status);
+  document.querySelectorAll(".status-row").forEach(row=>{
+    const s = row.dataset.s;
+    const sIdx = STATUS_STEPS.indexOf(s);
+    row.classList.remove("active","complete");
+    if(idx === -1) return;
+    if(sIdx < idx) row.classList.add("complete");
+    else if(sIdx === idx) row.classList.add("active");
+  });
+  const titleMap = {
+    paid: "Payment confirmed",
+    queued: "Queued for a printer",
+    printing: "Printing now",
+    done: "Ready for pickup",
+    failed: "Something went wrong",
+  };
+  const subMap = {
+    paid: "Waiting for a free printer at the shop.",
+    queued: "Your job is next in line.",
+    printing: "Your document is printing right now.",
+    done: "Head to the counter to collect your prints.",
+    failed: order.failure_reason || "Please check with the shop counter.",
+  };
+  $("trackTitle").textContent = titleMap[status] || "Tracking your order";
+  $("trackSub").textContent = subMap[status] || "";
+  if(status === "done"){
+    showStamp("DONE — READY FOR PICKUP", "success");
+  }
+}
+
+init();
+</script>
+</body>
+</html>
