@@ -114,6 +114,7 @@ class PaymentInitOut(BaseModel):
     amount: float
     gateway: str
     gateway_order_ref: str
+    razorpay_key_id: Optional[str] = None
 
 
 class PaymentVerifyIn(BaseModel):

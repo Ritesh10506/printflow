@@ -1,6 +1,8 @@
+import os
 import uuid
 from datetime import datetime
 
+import razorpay
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -10,9 +12,16 @@ from app.utils.assignment import find_free_printer
 
 router = APIRouter(prefix="/api/public/payments", tags=["payments"])
 
+RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET")
+razorpay_client = (
+    razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+    if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET
+    else None
+)
+
 
 def try_assign_printer(db: Session, order: models.Order) -> bool:
-    """Attempts to hand a PAID order to a free, capable printer. Returns True if assigned."""
     if order.status != models.OrderStatus.PAID:
         return False
     printer = find_free_printer(
@@ -33,20 +42,22 @@ def try_assign_printer(db: Session, order: models.Order) -> bool:
 
 @router.post("/{order_id}/init", response_model=schemas.PaymentInitOut)
 def init_payment(order_id: str, db: Session = Depends(get_db)):
-    """
-    Step 4: customer taps 'Pay'. Creates a payment record and (in production)
-    a Razorpay order via their Orders API. Wire the real SDK call in where noted --
-    everything downstream (verify, queueing) doesn't care which gateway you use.
-    """
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     if order.amount <= 0:
         raise HTTPException(status_code=400, detail="Get a quote before paying")
 
-    # TODO: replace with a real Razorpay order creation call:
-    #   client.order.create({"amount": int(order.amount * 100), "currency": "INR"})
-    gateway_order_ref = f"mock_order_{uuid.uuid4().hex[:12]}"
+    if razorpay_client:
+        rp_order = razorpay_client.order.create({
+            "amount": int(round(order.amount * 100)),
+            "currency": "INR",
+            "receipt": order.id,
+            "notes": {"order_id": order.id, "shop_id": order.shop_id},
+        })
+        gateway_order_ref = rp_order["id"]
+    else:
+        gateway_order_ref = f"mock_order_{uuid.uuid4().hex[:12]}"
 
     payment = order.payment
     if not payment:
@@ -63,26 +74,31 @@ def init_payment(order_id: str, db: Session = Depends(get_db)):
         amount=order.amount,
         gateway=payment.gateway,
         gateway_order_ref=gateway_order_ref,
+        razorpay_key_id=RAZORPAY_KEY_ID,
     )
 
 
 @router.post("/{order_id}/verify", response_model=schemas.OrderOut)
 def verify_payment(order_id: str, payload: schemas.PaymentVerifyIn, db: Session = Depends(get_db)):
-    """
-    Step 5: called after the gateway confirms payment (from client callback,
-    or better -- a server-to-server webhook, which is what you should use in
-    production so a customer can't fake a successful payment by just calling
-    this endpoint directly). TODO: verify Razorpay's HMAC signature here.
-    """
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     if not order.payment:
         raise HTTPException(status_code=400, detail="No payment was initiated for this order")
 
-    # TODO: real signature check, e.g.
-    #   expected = hmac_sha256(order.payment.gateway_order_ref + "|" + payload.gateway_payment_ref, secret)
-    #   if expected != payload.signature: raise HTTPException(400, "Signature mismatch")
+    if razorpay_client:
+        if not payload.signature:
+            raise HTTPException(status_code=400, detail="Missing payment signature")
+        try:
+            razorpay_client.utility.verify_payment_signature({
+                "razorpay_order_id": order.payment.gateway_order_ref,
+                "razorpay_payment_id": payload.gateway_payment_ref,
+                "razorpay_signature": payload.signature,
+            })
+        except razorpay.errors.SignatureVerificationError:
+            order.payment.status = models.PaymentStatus.FAILED
+            db.commit()
+            raise HTTPException(status_code=400, detail="Payment signature verification failed")
 
     order.payment.gateway_payment_ref = payload.gateway_payment_ref
     order.payment.status = models.PaymentStatus.SUCCESS

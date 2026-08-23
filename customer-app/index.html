@@ -6,6 +6,7 @@
 <title>PrintFlow — Upload & Print</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <style>
   :root{
     --paper:#FBFBF9;
@@ -705,36 +706,79 @@ function addReceiptLine(k, v){
   lines.appendChild(row);
 }
 
-// ---- Step 3: Pay (test-mode mock gateway) ----
+// ---- Step 3: Pay (Razorpay checkout) ----
 $("payBtn").addEventListener("click", async ()=>{
   clearError();
   const btn = $("payBtn");
   btn.disabled = true;
   btn.textContent = "Processing…";
   try{
-    await api(`/api/public/payments/${order.id}/init`, { method:"POST" });
-    // TEST MODE: a real integration opens the gateway's checkout here and
-    // waits for its callback instead of immediately calling verify.
-    const fakeRef = "pay_test_" + Date.now();
-    const result = await api(`/api/public/payments/${order.id}/verify`, {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ order_id: order.id, gateway_payment_ref: fakeRef }),
+    const init = await api(`/api/public/payments/${order.id}/init`, { method:"POST" });
+
+    if(!init.razorpay_key_id){
+      const fakeRef = "pay_test_" + Date.now();
+      const result = await api(`/api/public/payments/${order.id}/verify`, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ order_id: order.id, gateway_payment_ref: fakeRef }),
+      });
+      onPaymentConfirmed(result);
+      btn.disabled = false;
+      btn.textContent = "Pay & send to print";
+      return;
+    }
+
+    const rzp = new Razorpay({
+      key: init.razorpay_key_id,
+      amount: Math.round(init.amount * 100),
+      currency: "INR",
+      name: shop ? shop.name : "PrintFlow",
+      description: `Print job — ${order.original_filename}`,
+      order_id: init.gateway_order_ref,
+      handler: async function(response){
+        try{
+          const result = await api(`/api/public/payments/${order.id}/verify`, {
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({
+              order_id: order.id,
+              gateway_payment_ref: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
+            }),
+          });
+          onPaymentConfirmed(result);
+        }catch(e){
+          showError("Payment succeeded but confirming it failed: " + e.message);
+        }finally{
+          btn.disabled = false;
+          btn.textContent = "Pay & send to print";
+        }
+      },
+      modal: {
+        ondismiss: function(){
+          btn.disabled = false;
+          btn.textContent = "Pay & send to print";
+        }
+      },
+      theme: { color: "#B23B3B" },
     });
-    order = result;
-    showStamp(order.printer_id ? "PAID" : "PAID — WAITING FOR A FREE PRINTER", "success");
-    $("payPanel").classList.add("hidden");
-    $("trackPanel").classList.remove("hidden");
-    $("statusTrack").classList.remove("hidden");
-    $("trackPanel").scrollIntoView({behavior:"smooth", block:"start"});
-    startPolling();
+    rzp.open();
   }catch(e){
     showError("Payment failed: " + e.message);
-  }finally{
     btn.disabled = false;
     btn.textContent = "Pay & send to print";
   }
 });
+
+function onPaymentConfirmed(updatedOrder){
+  order = updatedOrder;
+  showStamp(order.printer_id ? "PAID" : "PAID — WAITING FOR A FREE PRINTER", "success");
+  $("payPanel").classList.add("hidden");
+  $("trackPanel").classList.remove("hidden");
+  $("statusTrack").classList.remove("hidden");
+  $("trackPanel").scrollIntoView({behavior:"smooth", block:"start"});
+  startPolling();
+}
 
 function showStamp(text, kind){
   $("stampArea").innerHTML = `<div class="stamp-mark ${kind==='success'?'success':''}">${text}</div>`;
