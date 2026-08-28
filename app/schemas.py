@@ -109,6 +109,12 @@ class PriceQuote(BaseModel):
 
 
 # ---------- Payment ----------
+class PaymentSettingsIn(BaseModel):
+    razorpay_key_id: str
+    razorpay_key_secret: str
+class PaymentSettingsOut(BaseModel):
+    razorpay_key_id: Optional[str] = None
+    is_configured: bool = False
 class PaymentInitOut(BaseModel):
     order_id: str
     amount: float

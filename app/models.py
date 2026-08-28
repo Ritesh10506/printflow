@@ -49,6 +49,8 @@ class Shop(Base):
     owner_email = Column(String, nullable=False)
     owner_password_hash = Column(String, nullable=False)
     plan = Column(String, default="trial")            # trial / basic / pro
+    razorpay_key_id = Column(String, nullable=True)       # this shop's own Razorpay key id (public)
+    razorpay_key_secret = Column(String, nullable=True)   # this shop's own Razorpay key secret — encrypt at rest before production
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

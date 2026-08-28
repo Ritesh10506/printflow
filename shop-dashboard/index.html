@@ -117,6 +117,7 @@
     <div class="tab active" data-tab="pricing">Pricing</div>
     <div class="tab" data-tab="printers">Printers</div>
     <div class="tab" data-tab="agents">Print Agents</div>
+    <div class="tab" data-tab="payment">Payment Settings</div>
     <div class="tab" data-tab="orders">Orders</div>
     <div class="tab" data-tab="link">Customer Link</div>
   </div>
@@ -158,6 +159,23 @@
     <div id="agentKeyResult"></div>
   </div>
 
+  <div class="panel tab-panel hidden" id="panel-payment">
+    <h3>Payment settings</h3>
+    <p class="hint">Connect your own Razorpay account so customer payments go straight to you — the platform never touches your money. Don't have one? Sign up free at <a href="https://razorpay.com" target="_blank" rel="noopener">razorpay.com</a>, switch to Test Mode, and copy your API keys from Settings → API Keys.</p>
+    <div id="paymentMsg"></div>
+    <div id="paymentStatus" style="margin-bottom:16px;"></div>
+    <div class="field" style="max-width:420px;">
+      <label>Razorpay Key ID</label>
+      <input type="text" id="rzpKeyId" placeholder="rzp_test_xxxxxxxxxxxx">
+    </div>
+    <div class="field" style="max-width:420px;">
+      <label>Razorpay Key Secret</label>
+      <input type="password" id="rzpKeySecret" placeholder="Your secret key">
+    </div>
+    <button class="btn btn-primary" id="savePaymentBtn" style="width:auto; padding:11px 22px;">Save</button>
+    <button class="btn btn-ghost" id="disconnectPaymentBtn" style="width:auto; padding:11px 22px; margin-left:8px;">Disconnect</button>
+  </div>
+
   <div class="panel tab-panel hidden" id="panel-orders">
     <div class="top-actions"><h3>Orders</h3><button class="btn btn-ghost btn-sm" id="refreshOrders">Refresh</button></div>
     <table>
@@ -170,7 +188,7 @@
     <h3>Your customer link</h3>
     <p class="hint">This is what your QR code should point to. Anyone who scans it lands on your upload page.</p>
     <div class="link-row">
-      <input type="text" id="customerLinkInput" readonly>
+      <input type="text" id="customerLinkInput">
       <button class="btn btn-ghost btn-sm" id="copyLinkBtn">Copy</button>
     </div>
     <p class="hint" style="margin-top:16px;">Note: the path above points at the customer web app's local dev server. In production this becomes your real domain, e.g. <code>printflow.app/s/your-slug</code>.</p>
@@ -178,8 +196,8 @@
 </div>
 
 <script>
-const API_BASE = "http://127.0.0.1:8000";
-const CUSTOMER_APP_BASE = "http://127.0.0.1:5500/index.html";
+const API_BASE = window.location.protocol + "//" + window.location.hostname + ":8000";
+const CUSTOMER_APP_BASE = window.location.protocol + "//" + window.location.hostname + ":5500/index.html";
 
 const $ = (id) => document.getElementById(id);
 let token = localStorage.getItem("printflow_token") || null;
@@ -271,6 +289,7 @@ document.querySelectorAll(".tab").forEach(tab=>{
     if(tab.dataset.tab === "printers") loadPrinters();
     if(tab.dataset.tab === "orders") loadOrders();
     if(tab.dataset.tab === "pricing") loadPricing();
+    if(tab.dataset.tab === "payment") loadPaymentSettings();
   });
 });
 
@@ -367,6 +386,49 @@ $("createAgentBtn").addEventListener("click", async ()=>{
         <div class="warn">Save this now — paste it into the print agent app on the shop PC. It won't be shown again from here.</div>
       </div>`;
   }catch(err){ box.innerHTML = `<div class="err">${err.message}</div>`; }
+});
+
+async function loadPaymentSettings(){
+  const statusBox = $("paymentStatus");
+  statusBox.innerHTML = "Loading…";
+  try{
+    const s = await api("/api/payments/settings");
+    if(s.is_configured){
+      statusBox.innerHTML = `<div class="ok">Connected — payments go to Razorpay key <code>${s.razorpay_key_id}</code></div>`;
+      $("rzpKeyId").value = s.razorpay_key_id || "";
+    }else{
+      statusBox.innerHTML = `<div class="err">Not connected yet — customer payments will use test mode until you add your own keys.</div>`;
+      $("rzpKeyId").value = "";
+    }
+    $("rzpKeySecret").value = "";
+  }catch(err){ statusBox.innerHTML = `<div class="err">${err.message}</div>`; }
+}
+
+$("savePaymentBtn").addEventListener("click", async ()=>{
+  const msg = $("paymentMsg");
+  msg.innerHTML = "";
+  const keyId = $("rzpKeyId").value.trim();
+  const keySecret = $("rzpKeySecret").value.trim();
+  if(!keyId || !keySecret){
+    msg.innerHTML = `<div class="err">Enter both your Key ID and Key Secret.</div>`;
+    return;
+  }
+  try{
+    await api("/api/payments/settings", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ razorpay_key_id: keyId, razorpay_key_secret: keySecret })
+    });
+    msg.innerHTML = `<div class="ok">Saved — your Razorpay account is now connected.</div>`;
+    loadPaymentSettings();
+  }catch(err){ msg.innerHTML = `<div class="err">${err.message}</div>`; }
+});
+
+$("disconnectPaymentBtn").addEventListener("click", async ()=>{
+  if(!confirm("Disconnect your Razorpay account? Payments will fall back to test mode.")) return;
+  try{
+    await api("/api/payments/settings", { method:"DELETE" });
+    loadPaymentSettings();
+  }catch(err){ alert(err.message); }
 });
 
 async function loadOrders(){
