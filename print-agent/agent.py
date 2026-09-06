@@ -37,7 +37,11 @@ try:
 except ImportError:
     win32print = None  # allows the script to at least start on non-Windows for review/testing
 
-CONFIG_PATH = Path(__file__).parent / "config.json"
+if getattr(sys, "frozen", False):
+    BASE_DIR = Path(sys.executable).resolve().parent
+else:
+    BASE_DIR = Path(__file__).resolve().parent
+CONFIG_PATH = BASE_DIR / "config.json"
 
 
 def load_config():
