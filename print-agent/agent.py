@@ -220,6 +220,14 @@ def main():
             for job in jobs:
                 print_job(job)
 
+        except KeyboardInterrupt:
+            # Under NSSM, something periodically delivers an interrupt-like
+            # signal to this process that isn't a real user Ctrl+C or a
+            # genuine NSSM stop request (root cause not yet confirmed).
+            # Swallow it here and keep running rather than let the whole
+            # service exit and get silently relaunched by NSSM's restart
+            # policy, which was masking this as looking like "it's working".
+            log("Caught an interrupt signal inside the main loop -- ignoring and continuing.")
         except Exception:
             log("Unexpected error in main loop:")
             traceback.print_exc()
